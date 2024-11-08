@@ -1,11 +1,5 @@
 ---
 
-# Ansible Playbook for setting up a Kubernetes Node
-# on an Ubuntu 22.04 LTS Server
-#
-# Author: Julian Kraus
-#
-
 - hosts: all
   gather_facts: yes
   become: true
