@@ -1,9 +1,1 @@
 ---
-
-- name: "Copy private key"
-  copy:
-    src: control_plane_private.key
-    dest: /home/vagrant/.ssh/control_plane_private.key
-    owner: vagrant
-    group: vagrant
-    mode: 0600
