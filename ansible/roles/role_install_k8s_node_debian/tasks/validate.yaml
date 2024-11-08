@@ -1,0 +1,23 @@
+---
+
+# Check node for minimal hardware requirements
+
+- name: Ensure OS is Debian based
+  assert:
+    that: ansible_os_family == 'Debian'
+    fail_msg: Node must be Debian based
+    
+- name: Ensure CPU has x86 (amd64) architecture
+  assert:
+    that: ansible_architecture == 'x86_64'
+    fail_msg: Node must have x86 architecture
+
+- name: Ensure machine has at least 2 GB of RAM
+  assert:
+    that: ansible_memtotal_mb >= 2048
+    fail_msg: Node must have at least 2 GB of RAM
+    
+- name: Ensure machine has at least 2 CPU cores
+  assert:
+    that: ansible_processor_cores >= 2
+    fail_msg: Node must have at least 2 CPU cores

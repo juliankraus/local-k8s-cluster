@@ -1,0 +1,4 @@
+---
+
+- name: "Join worker node to kubernetes cluster"
+  command: "kubeadm join {{ k8s_control_plane_host }}:{{ k8s_control_plane_port }} --token {{ k8s_control_plane_bootstrap_token }} --discovery-token-unsafe-skip-ca-verification"

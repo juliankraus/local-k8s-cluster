@@ -1,0 +1,86 @@
+---
+
+- name: Apply common configuration to a vagrant base box
+  hosts: all
+  become: true
+  vars:
+    vagrant_admin_user: vagrant
+    vagrant_admin_user_ssh_public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDwnUPfpQKbdTv8b1lclhlAjNEQui14oz7leTJdXO9FkR/800tMz/0nzmG/5QkLqX3LGXz19Voivt2ivfWkHoXJQR+5ZVHATznwyqNgs3hyd/1of7L920kQsDarXLBcYkrvk3WEC1aBb58wMBVjPrB8UWRAzNH5X90+W3Skc5JZXrFKela2CqFFJ3HY/o2jsip4BOaRfpN//xKsyTVJj27ls0KdCWzgL4bgQQnhGCYgf8JGMFy9lHnvELCr/NgK/hSQNOKueMLKI/MILieAfSdyow8wH528MfTj2rcQNkxcQmPM6UvjHHxNtOkwAPQiTa6Y1iNVFM4Yfqxb7MhxndzJ4qBk7PL3lABVwIpYwFTZVxyCrYYJ1u3yv8ejLHv+Gmu/sso67H/yn3QkirndupUInGusty6gTGvEsXatGH0TIs8Zjkic3fNRMig5yNXAwcWwzgkyJSIw0NxNjrByUyisezF+sN8rb2WpFt+phtZj8gkonnwNVH2f7Qf05eOJdKU=
+    
+    k8s_node_eth0_ip_address: 192.168.100.10
+    k8s_node_eth0_default_gateway: 192.168.100.1
+
+    vagrant_box_ntp_server: |
+      server 0.de.pool.ntp.org iburst
+      server 1.de.pool.ntp.org iburst
+      server 2.de.pool.ntp.org iburst
+      server 3.de.pool.ntp.org iburst
+      
+  pre_tasks:
+    - name: Add admin user {{ vagrant_admin_user }} authorized_key
+      authorized_key:
+        user: "{{ vagrant_admin_user }}"
+        state: present
+        key: "{{ vagrant_admin_user_ssh_public_key }}"
+
+    - name: Install a list of typical Linux monitoring tools
+      apt:
+        name:
+          - chrony
+        state: present
+
+    - name: Create /etc/chrony.conf
+      copy:
+        dest: /etc/chrony.conf
+        content: |
+          {{ vagrant_box_ntp_server }}
+          stratumweight 0.001
+          local stratum 10
+          driftfile /var/lib/chrony/drift
+          keyfile /etc/chrony.keys
+          commandkey 1
+          generatecommandkey
+          makestep 1 -1
+          leapsecmode slew
+          logchange 0.5
+          logdir /var/log/chrony
+          noclientlog
+          bindcmdaddress 127.0.0.1
+      notify:
+        - Restart chronyd
+
+    - name: Set timezone to Europe/Berlin
+      timezone:
+        name: Europe/Berlin
+
+    - name: Set root password
+      user:
+        name: root
+        password: $6$oWH8F3ck$7qGR7f6ih6HFB.41SKDRhrgdA7Ch93gS57CuBzj7u4fUMnT563.kQ0r.sz3bKdqAFrOqx1fwcikrjLpOIOIhE1
+        
+    - name: Configure static ip address for eth0 interface
+      copy:
+        dest: /etc/netplan/01-netcfg.yaml
+        content: |
+          network:
+            version: 2
+            ethernets:
+              eth0:
+                addresses: [{{ k8s_node_eth0_ip_address }}/24]
+                nameservers:
+                  addresses: [{{ k8s_node_eth0_default_gateway }}]
+                routes:
+                  - to: default
+                    via: {{ k8s_node_eth0_default_gateway }}
+    
+    - name: Apply network configuration
+      command: netplan apply
+          
+  handlers:
+    - name: Restart chronyd
+      service:
+        name: chronyd
+        state: restarted
+        
+  roles:
+    - role_install_k8s_node_debian

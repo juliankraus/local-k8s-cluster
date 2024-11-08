@@ -1,0 +1,5 @@
+---
+
+k8s_control_plane_host: ''
+k8s_control_plane_port: ''
+k8s_control_plane_bootstrap_token: ''

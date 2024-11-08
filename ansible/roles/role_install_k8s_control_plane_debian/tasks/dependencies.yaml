@@ -1,0 +1,6 @@
+---
+
+- name: Template InitConfiguration.yml
+  template:
+    src: InitConfiguration.yaml.j2
+    dest: /vagrant/InitConfiguration.yaml

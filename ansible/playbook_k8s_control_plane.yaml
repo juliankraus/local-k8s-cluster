@@ -1,0 +1,18 @@
+---
+
+# Ansible Playbook for setting up a Kubernetes Node
+# on an Ubuntu 22.04 LTS Server
+#
+# Author: Julian Kraus
+#
+
+- hosts: all
+  gather_facts: yes
+  become: true
+  
+  pre_tasks:
+    - debug:
+        var: ansible_facts
+  
+  roles:
+    - role_install_k8s_control_plane_debian

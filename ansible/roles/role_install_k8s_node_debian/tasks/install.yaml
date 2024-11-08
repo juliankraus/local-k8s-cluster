@@ -1,0 +1,59 @@
+---
+
+- name: Install kubeadm, kubectl and kubelet
+  block:
+    - name: Install apt-transport-https ca-certificates curl gpg
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - gpg
+
+    - name: Create dir /etc/apt/keyrings to store gpg key of Kubernetes repo
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: 755
+    
+    - name: Check if /etc/apt/keyrings/kubernetes-apt-keyring.gpg already exists
+      stat:
+        path: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      register: stat_kubernetes_apt_keyring_gpg
+
+    - name: Add Kubernetes GPG key to /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      shell: "curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ k8s_repo_version }}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg"
+      when: not stat_kubernetes_apt_keyring_gpg.stat.exists
+      
+    - name: Check if /etc/apt/sources.list.d/kubernetes.list already exists
+      stat:
+        path: /etc/apt/sources.list.d/kubernetes.list
+      register: stat_kubernetes_apt_sources_list
+
+    - name: Add Kubernetes repo to /etc/apt/sources.list.d/kubernetes.list
+      shell: "echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ k8s_repo_version }}/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list"
+      when: not stat_kubernetes_apt_sources_list.stat.exists
+
+    - name: Install kubeadm, kubectl and kubelet
+      apt:
+        name: "{{ item }}={{ k8s_package_version }}"
+        state: present
+        update_cache: yes
+      loop:
+        - kubeadm
+        - kubectl
+        - kubelet
+      register: install_kubernetes_packages
+
+    - name: Pin version of kubeadm, kubectl and kubelet
+      shell: apt-mark hold kubeadm kubectl kubelet
+      when: install_kubernetes_packages.changed
+      
+    - name: Enable kubelet systemd service
+      systemd:
+        name: kubelet
+        state: started
+        enabled: yes

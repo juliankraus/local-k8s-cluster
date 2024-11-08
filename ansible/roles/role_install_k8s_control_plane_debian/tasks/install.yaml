@@ -1,0 +1,102 @@
+---
+
+- name: Check if /etc/kubernetes/pki exists
+  stat:
+    path: /etc/kubernetes/pki
+  register: pki_dir
+  
+- name: Create /etc/kubernetes/pki if it does not exist
+  file:
+    path: /etc/kubernetes/pki
+    state: directory
+    owner: root
+    group: root
+  when: pki_dir.stat.exists == False
+  
+- name: Check if ca.crt exists
+  stat:
+    path: /etc/kubernetes/pki/ca.crt
+  register: ca_crt
+  
+- name: Check if ca.key exists
+  stat:
+    path: /etc/kubernetes/pki/ca.key
+  register: ca_key
+  
+- name: Copy certs to /etc/kubernetes/pki
+  copy:
+    src: "{{ item }}"
+    dest: /etc/kubernetes/pki
+    owner: root
+    group: root
+    mode: 0600
+  loop:
+    - ca.crt
+    - ca.key
+  when: not ca_crt.stat.exists and not ca_key.stat.exists
+
+- name: Set permissions of ca.crt to 0644
+  file:
+    path: /etc/kubernetes/pki/ca.crt
+    mode: 0644
+  when: ca_crt.stat.exists
+
+- name: Run kubeadm init
+  command: kubeadm init --config /vagrant/InitConfiguration.yaml
+
+- name: Create .kube directory for user
+  file:
+    path: /home/vagrant/.kube
+    state: directory
+    owner: vagrant
+    group: vagrant
+
+- name: Copy kubeconfig to .kube directory
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/vagrant/.kube/config
+    owner: vagrant
+    group: vagrant
+    remote_src: true
+
+- name: Install Cilium CNI
+  block:
+    # source: https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt
+    - name: Set CILIUM_CLI_VERSION to latest stable version
+      set_fact:
+        cilium_cli_version: "v0.16.18"
+
+    - name: Set CLI_ARCH to amd64
+      set_fact:
+        cli_arch: "amd64"
+
+    - name: Change CLI_ARCH to arm64 if architecture is aarch64
+      set_fact:
+        cli_arch: "arm64"
+      when: ansible_architecture == "aarch64"
+
+    - name: Download cilium-cli.tar.gz
+      get_url:
+        url: "https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version }}/cilium-linux-{{ cli_arch }}.tar.gz"
+        dest: "/tmp/cilium-linux-{{ cli_arch }}.tar.gz"
+        checksum: "sha256:https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version }}/cilium-linux-{{ cli_arch }}.tar.gz.sha256sum"
+
+    - name: Extract cilium-cli to /usr/local/bin
+      become: yes
+      unarchive:
+        src: "/tmp/cilium-linux-{{ cli_arch }}.tar.gz"
+        dest: /usr/local/bin
+        remote_src: yes
+
+    - name: Remove downloaded files
+      file:
+        path: "/tmp/cilium-linux-{{ cli_arch }}.tar.gz"
+        state: absent
+
+    - name: Install Cilium
+      command: cilium install --version 1.16.1
+      become_user: vagrant
+      
+    - name: Wait 5m0s for Cilium to report no warnings and errors
+      command: cilium status --wait
+      become_user: vagrant

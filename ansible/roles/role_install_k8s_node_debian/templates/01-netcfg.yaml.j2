@@ -1,0 +1,10 @@
+network:
+  version: 2
+  ethernets:
+    eth0:
+      addresses: [{{ k8s_node_eth0_ip_address }}]
+      nameservers:
+        addresses: [{{ k8s_node_eth0_default_gateway }}]
+      routes:
+        - to: default
+          via: {{ k8s_node_eth0_default_gateway }}

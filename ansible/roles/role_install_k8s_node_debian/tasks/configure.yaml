@@ -1,0 +1,27 @@
+---
+
+- name: Create /etc/containerd directory
+  file:
+    path: /etc/containerd
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+    
+- name: Check if /etc/containerd/config.toml already exists
+  stat:
+    path: /etc/containerd/config.toml
+  register: stat_config_toml
+    
+- name: Create /etc/containerd/config.toml
+  shell: containerd config default > /etc/containerd/config.toml
+  when: not stat_config_toml.stat.exists
+  register: config_toml
+  
+- name: Set systemd as cgroup driver for containerd in /etc/containerd/config.toml
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: SystemdCgroup = false
+    replace: SystemdCgroup = true
+  when: config_toml.changed
+  notify: restart-containerd

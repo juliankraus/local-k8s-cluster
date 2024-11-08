@@ -1,0 +1,10 @@
+
+- block:
+#    - include_tasks: validate.yaml
+#    - include_tasks: user.yaml
+    - include_tasks: dependencies.yaml    
+    - include_tasks: install.yaml
+#    - include_tasks: configure.yaml
+#    - include_tasks: smoketest.yaml
+#    - include_tasks: cleanup.yaml
+#    - include_tasks: firewalld.yaml

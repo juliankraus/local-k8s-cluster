@@ -1,0 +1,16 @@
+---
+      
+- name: "Verfiy control plane host is provided"
+  assert:
+    that: "k8s_control_plane_host is defined and k8s_control_plane_host != ''"
+    fail_msg: "Set the value of 'k8s_control_plane_host'"
+    
+- name: "Verfiy control plane port is provided"
+  assert:
+    that: "k8s_control_plane_port is defined and k8s_control_plane_port != ''"
+    fail_msg: "Set the value of 'k8s_control_plane_port'"        
+  
+- name: "Verify control plane bootstrap token is provided"
+  assert:
+    that: "k8s_control_plane_bootstrap_token is defined and k8s_control_plane_bootstrap_token != ''"
+    fail_msg: "Set the value of 'k8s_control_plane_bootstrap_token'"
