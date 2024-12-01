@@ -1,7 +1,8 @@
 ---
 
-k8s_repo_version: '1.30'
-k8s_package_version: "{{ k8s_repo_version }}.5-1.1"
+k8s_version: '1.31.3'
+k8s_repo_version: "{{ k8s_version.split('.')[0] }}.{{ k8s_version.split('.')[1] }}"
+k8s_package_version: "{{ k8s_version }}-1.1"
 
 cni_plugins_version: '1.5.1'
 cni_plugins_url: "https://github.com/containernetworking/plugins/releases/download/v{{ cni_plugins_version }}/cni-plugins-linux-amd64-v{{ cni_plugins_version }}.tgz"
