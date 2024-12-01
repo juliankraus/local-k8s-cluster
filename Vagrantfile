@@ -78,6 +78,7 @@ Vagrant.configure("2") do |config|
                                           kubectl config set-context #{K8S_KUBECONFIG_CONTEXT_NAME} --cluster=#{K8S_KUBECONFIG_CLUSTER_NAME} --user=#{K8S_KUBECONFIG_CREDENTIALS_NAME} && 
                                           kubectl config use-context #{K8S_KUBECONFIG_CONTEXT_NAME}'"
                     }
+                    trigger.on_error = :continue
                 end                
                 # delete vagrant cluster from kubeconfig context after destroying the cluster
                 node.trigger.after :destroy do |trigger|
