@@ -25,3 +25,12 @@
     replace: SystemdCgroup = true
   when: config_toml.changed
   notify: restart-containerd
+
+- name: Disable AppArmor profile for runc
+  file:
+    src: /etc/apparmor.d/runc
+    dest: /etc/apparmor.d/disable/runc
+    state: link
+
+- name: Remove AppArmor profile for runc from kernel
+  shell: apparmor_parser -R /etc/apparmor.d/runc
