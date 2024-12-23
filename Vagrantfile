@@ -114,6 +114,9 @@ Vagrant.configure("2") do |config|
                 qe.cpu = "max"
                 qe.net_device = nil
                 qe.ssh_port = string_to_number(vm[:name])
+                # Resource specs
+                qe.smp = 4
+                qe.memory = "8G"
             end
         end
     end    
