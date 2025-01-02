@@ -4,3 +4,25 @@
   template:
     src: InitConfiguration.yaml.j2
     dest: /vagrant/InitConfiguration.yaml
+
+- name: Install helm
+  block:
+    - name: Add helm gpg key
+      apt_key:
+        url: https://baltocdn.com/helm/signing.asc
+        state: present
+    - name: Install helm dependencies
+      apt:
+        name:
+          - apt-transport-https
+        state: present
+    - name: Add helm repo
+      apt_repository:
+        repo: "deb https://baltocdn.com/helm/stable/debian/ all main"
+        state: present
+    - name: Install helm
+      apt:
+        name:
+          - helm
+        state: present
+        update_cache: yes

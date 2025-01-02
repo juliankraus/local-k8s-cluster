@@ -23,7 +23,7 @@
         state: present
         key: "{{ vagrant_admin_user_ssh_public_key }}"
 
-    - name: Install a list of typical Linux monitoring tools
+    - name: Install additional packages
       apt:
         name:
           - chrony

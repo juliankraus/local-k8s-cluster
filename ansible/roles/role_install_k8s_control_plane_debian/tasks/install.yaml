@@ -50,6 +50,7 @@
     state: directory
     owner: vagrant
     group: vagrant
+    mode: 0700
 
 - name: Copy kubeconfig to .kube directory
   copy:
@@ -58,6 +59,19 @@
     owner: vagrant
     group: vagrant
     remote_src: true
+
+- name: Clone kubelet-csr-approver git repo
+  git:
+    repo: https://github.com/juliankraus/kubelet-csr-approver.git
+    dest: /vagrant/kubelet-csr-approver
+    version: main
+
+- name: Install kubelet-csr-approver helm chart
+  kubernetes.core.helm:
+    name: kubelet-csr-approver
+    chart_ref: /vagrant/kubelet-csr-approver
+    namespace: kube-system
+  become_user: vagrant
 
 - name: Install Cilium CNI
   block:
@@ -100,3 +114,17 @@
     - name: Wait 5m0s for Cilium to report no warnings and errors
       command: cilium status --wait
       become_user: vagrant
+
+- name: Add metrics-server helm repo
+  kubernetes.core.helm_repository:
+    name: metrics-server
+    repo_url: https://kubernetes-sigs.github.io/metrics-server
+  become_user: vagrant
+
+- name: Install metrics-server helm chart
+  kubernetes.core.helm:
+    name: metrics-server
+    chart_ref: metrics-server/metrics-server
+    namespace: kube-system
+    update_repo_cache: true
+  become_user: vagrant

@@ -29,9 +29,9 @@ Vagrant.configure("2") do |config|
     config.vm.synced_folder ".", "/vagrant", type: "rsync", rsync__args: ["--archive", "--delete", "-z", "--copy-links", "--executability"]
     
     vm_configs = [
-        { name: "k8s-control-plane", box: "bento/ubuntu-24.04", box_version: "202404.26.0", ip: "192.168.100.10", mac: "52:54:00:12:34:56" },
-        { name: "k8s-worker-node-1", box: "bento/ubuntu-24.04", box_version: "202404.26.0", ip: "192.168.100.20", mac: "78:8D:0B:3F:30:89"},
-        { name: "k8s-worker-node-2", box: "bento/ubuntu-24.04", box_version: "202404.26.0", ip: "192.168.100.30", mac: "B6:9B:C8:7C:3E:45" }
+         { name: "k8s-control-plane", box: "bento/ubuntu-24.04", box_version: "202404.26.0", ip: "192.168.100.10", mac: "52:54:00:12:34:56" },
+         { name: "k8s-worker-node-1", box: "bento/ubuntu-24.04", box_version: "202404.26.0", ip: "192.168.100.20", mac: "78:8D:0B:3F:30:89" },
+         { name: "k8s-worker-node-2", box: "bento/ubuntu-24.04", box_version: "202404.26.0", ip: "192.168.100.30", mac: "B6:9B:C8:7C:3E:45" }
     ]
 
     vm_configs.each do |vm|
@@ -42,13 +42,26 @@ Vagrant.configure("2") do |config|
             
             node.vm.hostname = vm[:name]
             
+            # Create a python3 virtual environment and install ansible and kubernetes
+            $script = <<-SCRIPT
+            apt-get update
+            apt-get install -y python3-venv
+            python3 -m venv --clear /home/vagrant/venv
+            source /home/vagrant/venv/bin/activate
+            pip install --upgrade pip
+            pip install ansible kubernetes
+            deactivate
+            SCRIPT
+
+            node.vm.provision "shell" do |shell|
+                shell.name = "Create a python3 virtual environment and install required python libraries"
+                shell.inline = $script
+            end
+
             # Configure chrony, user, ssh
             # Install basic Kubernetes components
             node.vm.provision "ansible_local" do |ansible|
                 ansible.playbook = "ansible/playbook_vagrant_provisioning.yaml"
-                # Install the latest ansible version from apt
-                ansible.install = true
-                ansible.install_mode = "default"
                 ansible.extra_vars = {
                     k8s_node_eth0_ip_address: vm[:ip],
                     k8s_node_eth0_default_gateway: "192.168.100.1",
