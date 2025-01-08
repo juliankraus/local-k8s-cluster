@@ -32,6 +32,9 @@
     group: root
     checksum: "sha256:{{ cni_plugins_url }}.sha256"
   register: wget_cni_plugins
+  until: "'OK' in wget_cni_plugins.msg or 'file already exists' in wget_cni_plugins.msg"
+  retries: 3
+  delay: 5
 
 - name: Extract cni-plugins
   unarchive:

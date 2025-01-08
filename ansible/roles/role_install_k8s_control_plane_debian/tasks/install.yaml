@@ -59,6 +59,7 @@
     owner: vagrant
     group: vagrant
     remote_src: true
+    mode: 0600
 
 - name: Clone kubelet-csr-approver git repo
   git:
@@ -94,6 +95,10 @@
         url: "https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version }}/cilium-linux-{{ cli_arch }}.tar.gz"
         dest: "/tmp/cilium-linux-{{ cli_arch }}.tar.gz"
         checksum: "sha256:https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version }}/cilium-linux-{{ cli_arch }}.tar.gz.sha256sum"
+      register: get_url_result
+      until: "'OK' in get_url_result.msg or 'file already exists' in get_url_result.msg"
+      retries: 3
+      delay: 5
 
     - name: Extract cilium-cli to /usr/local/bin
       become: yes
