@@ -65,7 +65,7 @@
   git:
     repo: https://github.com/juliankraus/kubelet-csr-approver.git
     dest: /vagrant/kubelet-csr-approver
-    version: main
+    version: v1.0.0
 
 - name: Install kubelet-csr-approver helm chart
   kubernetes.core.helm:
