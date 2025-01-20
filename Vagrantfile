@@ -49,8 +49,11 @@ Vagrant.configure("2") do |config|
             python3 -m venv --clear /home/vagrant/venv
             source /home/vagrant/venv/bin/activate
             pip install --upgrade pip
-            pip install ansible kubernetes
+            pip install ansible kubernetes passlib
             deactivate
+            # Create symlinks for ansible
+            ln -s /home/vagrant/venv/bin/ansible /usr/local/bin/ansible
+            ln -s /home/vagrant/venv/bin/ansible-playbook /usr/local/bin/ansible-playbook
             SCRIPT
 
             node.vm.provision "shell" do |shell|
@@ -62,6 +65,7 @@ Vagrant.configure("2") do |config|
             # Install basic Kubernetes components
             node.vm.provision "ansible_local" do |ansible|
                 ansible.playbook = "ansible/playbook_vagrant_provisioning.yaml"
+                ansible.compatibility_mode = "2.0"
                 ansible.extra_vars = {
                     k8s_node_eth0_ip_address: vm[:ip],
                     k8s_node_eth0_default_gateway: "192.168.100.1",
@@ -77,6 +81,7 @@ Vagrant.configure("2") do |config|
                end
                node.vm.provision "ansible_local" do |ansible|
                    ansible.playbook = "ansible/playbook_k8s_control_plane.yaml"
+                   ansible.compatibility_mode = "2.0"
                    ansible.extra_vars = {
                        k8s_control_plane_bootstrap_token: K8S_CONTROL_PLANE_BOOTSTRAP_TOKEN,
                        k8s_version: K8S_VERSION
@@ -111,6 +116,7 @@ Vagrant.configure("2") do |config|
                end            
                node.vm.provision "ansible_local" do |ansible|
                    ansible.playbook = "ansible/playbook_k8s_worker_node.yaml"
+                   ansible.compatibility_mode = "2.0"
                    ansible.extra_vars = {
                        k8s_control_plane_host: "192.168.100.10",
                        k8s_control_plane_port: 6443,
@@ -132,5 +138,5 @@ Vagrant.configure("2") do |config|
                 qe.memory = "8G"
             end
         end
-    end    
+    end
 end

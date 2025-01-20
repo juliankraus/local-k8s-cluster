@@ -17,6 +17,34 @@
       server 3.de.pool.ntp.org iburst
       
   pre_tasks:
+    - name: "Ensure the {{ vagrant_admin_user }} user exists"
+      user:
+        name: "{{ vagrant_admin_user }}"
+        state: present
+        shell: /bin/bash
+        groups: sudo
+        append: true
+        create_home: true
+
+    - name: Create /vagrant directory
+      file:
+        path: /vagrant
+        state: directory
+        mode: '0755'
+
+    - name: "Set a password for the {{ vagrant_admin_user }} user"
+      user:
+        name: "{{ vagrant_admin_user }}"
+        password: "{{ 'vagrant' | password_hash('sha512') }}"
+
+    - name: "Add {{ vagrant_admin_user }}'s SSH directory"
+      file:
+        path: "/home/{{ vagrant_admin_user }}/.ssh"
+        state: directory
+        owner: "{{ vagrant_admin_user }}"
+        group: "{{ vagrant_admin_user }}"
+        mode: '0700'
+
     - name: Add admin user {{ vagrant_admin_user }} authorized_key
       authorized_key:
         user: "{{ vagrant_admin_user }}"
