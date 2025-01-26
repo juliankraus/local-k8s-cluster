@@ -8,6 +8,10 @@
     state: present
   loop:
     - containerd
+  register: apt_result
+  until: apt_result is success
+  retries: 3
+  delay: 5
   
 - name: Check if /opt/cni/bin exists
   stat:

@@ -56,6 +56,10 @@
         name:
           - chrony
         state: present
+      register: apt_result
+      until: apt_result is success
+      retries: 3
+      delay: 5
 
     - name: Create /etc/chrony.conf
       copy:

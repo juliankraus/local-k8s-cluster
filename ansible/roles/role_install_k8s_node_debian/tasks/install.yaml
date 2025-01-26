@@ -12,6 +12,10 @@
         - ca-certificates
         - curl
         - gpg
+      register: apt_result
+      until: apt_result is success
+      retries: 3
+      delay: 5
 
     - name: Create dir /etc/apt/keyrings to store gpg key of Kubernetes repo
       file:
@@ -47,6 +51,9 @@
         - kubectl
         - kubelet
       register: install_kubernetes_packages
+      until: install_kubernetes_packages is success
+      retries: 3
+      delay: 5
 
     - name: Pin version of kubeadm, kubectl and kubelet
       shell: apt-mark hold kubeadm kubectl kubelet
