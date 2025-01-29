@@ -1,0 +1,11 @@
+---
+
+- name: Install required dependencies
+  apt:
+    name:
+      - nfs-common
+    state: present
+  register: apt_result
+  until: apt_result is success
+  retries: 3
+  delay: 5

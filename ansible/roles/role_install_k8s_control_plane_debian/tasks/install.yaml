@@ -133,3 +133,35 @@
     namespace: kube-system
     update_repo_cache: true
   become_user: vagrant
+
+- name: Install nfs-kernel-server
+  apt:
+    name: nfs-kernel-server
+    state: present
+  register: apt_result
+  until: apt_result is success
+  retries: 3
+  delay: 5
+
+- name: Create directory to share via NFS server
+  file:
+    path: /opt/sfw/
+    state: directory
+    mode: 1777
+    recurse: yes
+
+- name: Create test file to share via NFS server
+  copy:
+    content: "Hello World!"
+    dest: /opt/sfw/test.txt
+    mode: 0644
+
+- name: Add NFS directory to /etc/exports
+  lineinfile:
+    path: /etc/exports
+    line: "/opt/sfw *(rw,sync,no_root_squash,subtree_check)"
+    state: present
+    create: yes
+
+- name: Reload exportfs
+  command: exportfs -ra
