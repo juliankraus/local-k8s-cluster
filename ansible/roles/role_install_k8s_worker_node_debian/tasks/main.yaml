@@ -1,4 +1,5 @@
 
 - block:
     - include_tasks: validate.yaml
+    - include_tasks: dependencies.yaml
     - include_tasks: configure.yaml
