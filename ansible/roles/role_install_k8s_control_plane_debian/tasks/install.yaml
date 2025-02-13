@@ -165,3 +165,46 @@
 
 - name: Reload exportfs
   command: exportfs -ra
+
+- name: Add MetalLB Helm repo
+  kubernetes.core.helm_repository:
+    name: metallb
+    repo_url: https://metallb.github.io/metallb
+  become_user: vagrant
+
+- name: Install MetalLB Helm Chart
+  kubernetes.core.helm:
+    name: metallb
+    chart_ref: metallb/metallb
+    namespace: metallb-system
+    create_namespace: true
+    update_repo_cache: true
+  become_user: vagrant
+
+- name: Wait for MetalLB Controller Deployment to become ready
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: metallb-controller
+        namespace: metallb-system
+    wait: True
+    wait_condition:
+      reason: MinimumReplicasAvailable
+      type: Available
+      status: True
+  become_user: vagrant
+
+- name: Create IPAddressPool resource
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: metallb.io/v1beta1
+      kind: IPAddressPool
+      metadata:
+        name: ip-address-pool
+        namespace: metallb-system
+      spec:
+        addresses: "{{ metallb_ip_address_pool }}"
+  become_user: vagrant
