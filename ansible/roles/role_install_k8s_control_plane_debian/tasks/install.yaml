@@ -61,18 +61,20 @@
     remote_src: true
     mode: 0600
 
-- name: Clone kubelet-csr-approver git repo
-  git:
-    repo: https://github.com/juliankraus/kubelet-csr-approver.git
-    dest: /vagrant/kubelet-csr-approver
-    version: v1.0.0
+- name: Install kubelet-csr-approver
+  block:
+  - name: Clone kubelet-csr-approver git repo
+    git:
+      repo: https://github.com/juliankraus/kubelet-csr-approver.git
+      dest: /vagrant/kubelet-csr-approver
+      version: v1.0.0
 
-- name: Install kubelet-csr-approver helm chart
-  kubernetes.core.helm:
-    name: kubelet-csr-approver
-    chart_ref: /vagrant/kubelet-csr-approver
-    namespace: kube-system
-  become_user: vagrant
+  - name: Install kubelet-csr-approver helm chart
+    kubernetes.core.helm:
+      name: kubelet-csr-approver
+      chart_ref: /vagrant/kubelet-csr-approver
+      namespace: kube-system
+    become_user: vagrant
 
 - name: Install Cilium CNI
   block:
@@ -120,106 +122,136 @@
       command: cilium status --wait
       become_user: vagrant
 
-- name: Add metrics-server helm repo
-  kubernetes.core.helm_repository:
-    name: metrics-server
-    repo_url: https://kubernetes-sigs.github.io/metrics-server
-  become_user: vagrant
+- name: Install metrics-server
+  block:
+  - name: Add metrics-server helm repo
+    kubernetes.core.helm_repository:
+      name: metrics-server
+      repo_url: https://kubernetes-sigs.github.io/metrics-server
+    become_user: vagrant
 
-- name: Install metrics-server helm chart
-  kubernetes.core.helm:
-    name: metrics-server
-    chart_ref: metrics-server/metrics-server
-    namespace: kube-system
-    update_repo_cache: true
-  become_user: vagrant
+  - name: Install metrics-server helm chart
+    kubernetes.core.helm:
+      name: metrics-server
+      chart_ref: metrics-server/metrics-server
+      namespace: kube-system
+      update_repo_cache: true
+    become_user: vagrant
 
-- name: Install nfs-kernel-server
-  apt:
-    name: nfs-kernel-server
-    state: present
-  register: apt_result
-  until: apt_result is success
-  retries: 3
-  delay: 5
+- name: Install nfs server
+  block:
+  - name: Install nfs-kernel-server
+    apt:
+      name: nfs-kernel-server
+      state: present
+    register: apt_result
+    until: apt_result is success
+    retries: 3
+    delay: 5
 
-- name: Create directory to share via NFS server
-  file:
-    path: /opt/sfw/
-    state: directory
-    mode: 1777
-    recurse: yes
+  - name: Create directory to share via NFS server
+    file:
+      path: /opt/sfw/
+      state: directory
+      mode: 1777
+      recurse: yes
 
-- name: Create test file to share via NFS server
-  copy:
-    content: "Hello World!"
-    dest: /opt/sfw/test.txt
-    mode: 0644
+  - name: Create test file to share via NFS server
+    copy:
+      content: "Hello World!"
+      dest: /opt/sfw/test.txt
+      mode: 0644
 
-- name: Add NFS directory to /etc/exports
-  lineinfile:
-    path: /etc/exports
-    line: "/opt/sfw *(rw,sync,no_root_squash,subtree_check)"
-    state: present
-    create: yes
+  - name: Add NFS directory to /etc/exports
+    lineinfile:
+      path: /etc/exports
+      line: "/opt/sfw *(rw,sync,no_root_squash,subtree_check)"
+      state: present
+      create: yes
 
-- name: Reload exportfs
-  command: exportfs -ra
+  - name: Reload exportfs
+    command: exportfs -ra
 
-- name: Add MetalLB Helm repo
-  kubernetes.core.helm_repository:
-    name: metallb
-    repo_url: https://metallb.github.io/metallb
-  become_user: vagrant
+- name: Install nfs-subdir-external-provisioner
+  block:
+  - name: Add nfs-subdir-external-provisioner Helm repo
+    kubernetes.core.helm_repository:
+      name: nfs-subdir-external-provisioner
+      repo_url: https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner
+    become_user: vagrant
 
-- name: Install MetalLB Helm Chart
-  kubernetes.core.helm:
-    name: metallb
-    chart_ref: metallb/metallb
-    namespace: metallb-system
-    create_namespace: true
-    update_repo_cache: true
-  become_user: vagrant
+  - name: Install nfs-subdir-external-provisioner Helm Chart
+    kubernetes.core.helm:
+      name: nfs-subdir-external-provisioner
+      chart_ref: nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
+      namespace: nfs-subdir-external-provisioner
+      create_namespace: true
+      update_repo_cache: true
+      set_values:
+        - value: nfs.server=192.168.100.10
+          valueType: string
+        - value: nfs.path=/opt/sfw/
+          valueType: string
+    become_user: vagrant
 
-- name: Wait for MetalLB Controller Deployment to become ready
-  kubernetes.core.k8s:
-    definition:
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: metallb-controller
-        namespace: metallb-system
-    wait: True
-    wait_condition:
-      reason: MinimumReplicasAvailable
-      type: Available
-      status: True
-  become_user: vagrant
+- name: Install MetalLB
+  block:
+  - name: Add MetalLB Helm repo
+    kubernetes.core.helm_repository:
+      name: metallb
+      repo_url: https://metallb.github.io/metallb
+    become_user: vagrant
 
-- name: Create IPAddressPool resource
-  kubernetes.core.k8s:
-    state: present
-    definition:
-      apiVersion: metallb.io/v1beta1
-      kind: IPAddressPool
-      metadata:
-        name: ip-address-pool
-        namespace: metallb-system
-      spec:
-        addresses: "{{ metallb_ip_address_pool }}"
-  become_user: vagrant
+  - name: Install MetalLB Helm Chart
+    kubernetes.core.helm:
+      name: metallb
+      chart_ref: metallb/metallb
+      namespace: metallb-system
+      create_namespace: true
+      update_repo_cache: true
+    become_user: vagrant
 
-- name: Add ingress-nginx Helm repo
-  kubernetes.core.helm_repository:
-    name: ingress-nginx
-    repo_url: https://kubernetes.github.io/ingress-nginx
-  become_user: vagrant
+  - name: Wait for MetalLB Controller Deployment to become ready
+    kubernetes.core.k8s:
+      definition:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: metallb-controller
+          namespace: metallb-system
+      wait: True
+      wait_condition:
+        reason: MinimumReplicasAvailable
+        type: Available
+        status: True
+    become_user: vagrant
 
-- name: Install ingress-nginx Helm Chart
-  kubernetes.core.helm:
-    name: ingress-nginx
-    chart_ref: ingress-nginx/ingress-nginx
-    namespace: ingress-nginx
-    create_namespace: true
-    update_repo_cache: true
-  become_user: vagrant
+  - name: Create IPAddressPool resource
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: metallb.io/v1beta1
+        kind: IPAddressPool
+        metadata:
+          name: ip-address-pool
+          namespace: metallb-system
+        spec:
+          addresses: "{{ metallb_ip_address_pool }}"
+    become_user: vagrant
+
+- name: Install ingress-nginx
+  block:
+  - name: Add ingress-nginx Helm repo
+    kubernetes.core.helm_repository:
+      name: ingress-nginx
+      repo_url: https://kubernetes.github.io/ingress-nginx
+    become_user: vagrant
+
+  - name: Install ingress-nginx Helm Chart
+    kubernetes.core.helm:
+      name: ingress-nginx
+      chart_ref: ingress-nginx/ingress-nginx
+      namespace: ingress-nginx
+      create_namespace: true
+      update_repo_cache: true
+    become_user: vagrant
