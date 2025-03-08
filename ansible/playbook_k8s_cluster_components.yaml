@@ -1,0 +1,200 @@
+---
+
+- hosts: all
+  gather_facts: true
+  become: true
+  
+  tasks:
+    - name: Install cert-manager
+      tags: cert-manager
+      block:
+        - name: Add cert-manager Helm repo
+          kubernetes.core.helm_repository:
+            name: jetstack
+            repo_url: https://charts.jetstack.io
+          become_user: vagrant
+
+        - name: Install cert-amanger Helm chart
+          kubernetes.core.helm:
+            name: cert-manager
+            chart_ref: jetstack/cert-manager
+            namespace: cert-manager
+            create_namespace: true
+            update_repo_cache: true
+            set_values:
+              - value: crds.enabled=true
+                valueType: string
+          become_user: vagrant
+          
+    - name: Install kubernetes-dashboard
+      tags: kubernetes-dashboard
+      block:
+        - name: Add kubernetes-dashboard Helm repo
+          kubernetes.core.helm_repository:
+            name: kubernetes-dashboard
+            repo_url: https://kubernetes.github.io/dashboard/
+          become_user: vagrant
+    
+        - name: Install kubernetes-dashboard Helm chart
+          kubernetes.core.helm:
+            name: kubernetes-dashboard
+            chart_ref: kubernetes-dashboard/kubernetes-dashboard
+            namespace: kubernetes-dashboard
+            create_namespace: true
+            update_repo_cache: true
+          become_user: vagrant
+    
+        - name: Create kubernetes-dashboard ServiceAccounts
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              kind: ServiceAccount
+              apiVersion: v1
+              metadata:
+                name: "{{ item }}"
+                namespace: kubernetes-dashboard
+          become_user: vagrant
+          loop:
+            - kubernetes-dashboard-viewer
+            - kubernetes-dashboard-editor
+            - kubernetes-dashboard-admin
+    
+        - name: Create kubernetes-dashboard ClusterRoleBinding
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              kind: ClusterRoleBinding
+              apiVersion: rbac.authorization.k8s.io/v1
+              metadata:
+                name: "kubernetes-dashboard-{{ item.cluster_role }}"
+              roleRef:
+                kind: ClusterRole
+                name: "{{ item.cluster_role }}"
+                apiGroup: rbac.authorization.k8s.io
+              subjects:
+                - kind: ServiceAccount
+                  name: "{{ item.service_account }}"
+                  namespace: kubernetes-dashboard
+          become_user: vagrant
+          loop:
+            - cluster_role: view
+              service_account: kubernetes-dashboard-viewer
+            - cluster_role: edit
+              service_account: kubernetes-dashboard-editor
+            - cluster_role: admin
+              service_account: kubernetes-dashboard-admin
+    
+        - name: Create kubernetes-dashboard Tokens
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              kind: Secret
+              apiVersion: v1
+              metadata:
+                name: "{{ item }}"
+                namespace: kubernetes-dashboard
+                annotations:
+                  kubernetes.io/service-account.name: "{{ item }}"
+              type: kubernetes.io/service-account-token
+          become_user: vagrant
+          loop:
+            - kubernetes-dashboard-viewer
+            - kubernetes-dashboard-editor
+            - kubernetes-dashboard-admin
+          
+    - name: Install ingress-nginx
+      tags: ingress-nginx
+      block:
+        - name: Add ingress-nginx Helm repo
+          kubernetes.core.helm_repository:
+            name: ingress-nginx
+            repo_url: https://kubernetes.github.io/ingress-nginx
+          become_user: vagrant
+    
+        - name: Install ingress-nginx Helm chart
+          kubernetes.core.helm:
+            name: ingress-nginx
+            chart_ref: ingress-nginx/ingress-nginx
+            namespace: ingress-nginx
+            create_namespace: true
+            update_repo_cache: true
+          become_user: vagrant
+
+    - name: Install MetalLB
+      tags: metallb
+      block:
+        - name: Add MetalLB Helm repo
+          kubernetes.core.helm_repository:
+            name: metallb
+            repo_url: https://metallb.github.io/metallb
+          become_user: vagrant
+    
+        - name: Install MetalLB Helm chart
+          kubernetes.core.helm:
+            name: metallb
+            chart_ref: metallb/metallb
+            namespace: metallb-system
+            create_namespace: true
+            update_repo_cache: true
+          become_user: vagrant
+    
+        - name: Wait for MetalLB Controller Deployment to become ready
+          kubernetes.core.k8s:
+            definition:
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: metallb-controller
+                namespace: metallb-system
+            wait: True
+            wait_condition:
+              reason: MinimumReplicasAvailable
+              type: Available
+              status: True
+          become_user: vagrant
+    
+        - name: Create IPAddressPool resource
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              apiVersion: metallb.io/v1beta1
+              kind: IPAddressPool
+              metadata:
+                name: ip-address-pool
+                namespace: metallb-system
+              spec:
+                addresses: "{{ metallb_ip_address_pool }}"
+          become_user: vagrant
+
+    - name: Install metrics-server
+      tags: metrics-server
+      block:
+        - name: Add metrics-server helm repo
+          kubernetes.core.helm_repository:
+            name: metrics-server
+            repo_url: https://kubernetes-sigs.github.io/metrics-server
+          become_user: vagrant
+    
+        - name: Install metrics-server helm chart
+          kubernetes.core.helm:
+            name: metrics-server
+            chart_ref: metrics-server/metrics-server
+            namespace: kube-system
+            update_repo_cache: true
+          become_user: vagrant
+
+    - name: Install kubelet-csr-approver
+      tags: kubelet-csr-approver
+      block:
+        - name: Clone kubelet-csr-approver git repo
+          git:
+            repo: https://github.com/juliankraus/kubelet-csr-approver.git
+            dest: /vagrant/kubelet-csr-approver
+            version: v1.0.0
+    
+        - name: Install kubelet-csr-approver helm chart
+          kubernetes.core.helm:
+            name: kubelet-csr-approver
+            chart_ref: /vagrant/kubelet-csr-approver
+            namespace: kube-system
+          become_user: vagrant          

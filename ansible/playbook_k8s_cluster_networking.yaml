@@ -1,0 +1,53 @@
+---
+
+- hosts: all
+  gather_facts: yes
+  become: true
+  
+  tasks:
+    - name: Install Cilium CNI
+      tags: cilium
+      block:
+        # source: https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt
+        - name: Set CILIUM_CLI_VERSION to latest stable version
+          set_fact:
+            cilium_cli_version: "v0.16.18"
+
+        - name: Set CLI_ARCH to amd64
+          set_fact:
+            cli_arch: "amd64"
+
+        - name: Change CLI_ARCH to arm64 if architecture is aarch64
+          set_fact:
+            cli_arch: "arm64"
+          when: ansible_architecture == "aarch64"
+
+        - name: Download cilium-cli.tar.gz
+          get_url:
+            url: "https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version }}/cilium-linux-{{ cli_arch }}.tar.gz"
+            dest: "/tmp/cilium-linux-{{ cli_arch }}.tar.gz"
+            checksum: "sha256:https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version }}/cilium-linux-{{ cli_arch }}.tar.gz.sha256sum"
+          register: get_url_result
+          until: "'OK' in get_url_result.msg or 'file already exists' in get_url_result.msg"
+          retries: 3
+          delay: 5
+
+        - name: Extract cilium-cli to /usr/local/bin
+          become: yes
+          unarchive:
+            src: "/tmp/cilium-linux-{{ cli_arch }}.tar.gz"
+            dest: /usr/local/bin
+            remote_src: yes
+
+        - name: Remove downloaded files
+          file:
+            path: "/tmp/cilium-linux-{{ cli_arch }}.tar.gz"
+            state: absent
+
+        - name: Install Cilium
+          command: cilium install --version 1.16.1
+          become_user: vagrant
+
+        - name: Wait 5m0s for Cilium to report no warnings and errors
+          command: cilium status --wait
+          become_user: vagrant

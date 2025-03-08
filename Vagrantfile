@@ -79,6 +79,7 @@ Vagrant.configure("2") do |config|
                    # configure a vmnet network on eth0 and port-forwarding on eth1, forward Kubernetes API server port to localhost                   
                    qe.extra_qemu_args = ["-device", "virtio-net-pci,netdev=net0,mac=" + vm[:mac], "-netdev", "socket,id=net0,fd=3", "-device", "virtio-net-pci,netdev=net1", "-netdev", "user,id=net1,hostfwd=tcp::" + string_to_number(vm[:name]).to_s + "-:22", "-device", "virtio-net-pci,netdev=net2", "-netdev", "user,id=net2,hostfwd=tcp::6443-:6443"]
                end
+               # Setup basic Control Plane
                node.vm.provision "ansible_local" do |ansible|
                    ansible.playbook = "ansible/playbook_k8s_control_plane.yaml"
                    ansible.compatibility_mode = "2.0"
@@ -86,7 +87,31 @@ Vagrant.configure("2") do |config|
                        k8s_control_plane_bootstrap_token: K8S_CONTROL_PLANE_BOOTSTRAP_TOKEN,
                        k8s_version: K8S_VERSION
                    }
-               end               
+               end
+               # Install kubelet-csr-approver
+               node.vm.provision "ansible_local" do |ansible|
+                   ansible.playbook = "ansible/playbook_k8s_cluster_components.yaml"
+                   ansible.compatibility_mode = "2.0"
+                   ansible.tags = "kubelet-csr-approver"
+               end
+               # Install Cilium CNI
+               node.vm.provision "ansible_local" do |ansible|
+                   ansible.playbook = "ansible/playbook_k8s_cluster_networking.yaml"
+                   ansible.compatibility_mode = "2.0"
+                   ansible.tags = "cilium"
+               end
+               # Install NFS
+               node.vm.provision "ansible_local" do |ansible|
+                   ansible.playbook = "ansible/playbook_k8s_cluster_storage.yaml"
+                   ansible.compatibility_mode = "2.0"
+                   ansible.tags = "nfs"
+               end
+               # Install additional cluster components
+               node.vm.provision "ansible_local" do |ansible|
+                   ansible.playbook = "ansible/playbook_k8s_cluster_components.yaml"
+                   ansible.compatibility_mode = "2.0"
+                   ansible.tags = ["metrics-server", "kubernetes-dashboard"]
+               end
                 # set current kubeconfig context to vagrant cluster after setup
                 node.trigger.after :up do |trigger|
                     trigger.info = "Create kubeconfig entry for vagrant cluster"
