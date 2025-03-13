@@ -51,3 +51,53 @@
         - name: Wait 5m0s for Cilium to report no warnings and errors
           command: cilium status --wait
           become_user: vagrant
+
+    - name: Install Calico CNI
+      tags: calico
+      block:
+        - name: Set Calico version
+          set_fact:
+            calico_version: "v3.29.2"
+
+        - name: Install tigera operator
+          kubernetes.core.k8s:
+            src: "https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/tigera-operator.yaml"
+            state: present
+          become_user: vagrant
+
+        - name: Install custom resources
+          kubernetes.core.k8s:
+            src: "https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/custom-resources.yaml"
+            state: present
+          become_user: vagrant
+
+        - name: Wait for tigera-operator to become ready
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              apiVersion: v1
+              kind: Deployment
+              metadata:
+                name: tigera-operator
+                namespace: tigera-operator
+            wait: True
+            wait_condition:
+              reason: MinimumReplicasAvailable
+              type: Available
+              status: True
+          become_user: vagrant
+
+        # Fix for current calico deployment
+        - name: Create secret for calico-cni-plugin ServiceAccount
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: calico-cni-plugin
+                namespace: calico-system
+                annotations:
+                  kubernetes.io/service-account.name: calico-cni-plugin
+              type: kubernetes.io/service-account-token
+          become_user: vagrant

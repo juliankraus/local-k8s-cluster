@@ -77,7 +77,7 @@ Vagrant.configure("2") do |config|
             if vm[:name].include?("control-plane")
                node.vm.provider "qemu" do |qe|
                    # configure a vmnet network on eth0 and port-forwarding on eth1, forward Kubernetes API server port to localhost                   
-                   qe.extra_qemu_args = ["-device", "virtio-net-pci,netdev=net0,mac=" + vm[:mac], "-netdev", "socket,id=net0,fd=3", "-device", "virtio-net-pci,netdev=net1", "-netdev", "user,id=net1,hostfwd=tcp::" + string_to_number(vm[:name]).to_s + "-:22", "-device", "virtio-net-pci,netdev=net2", "-netdev", "user,id=net2,hostfwd=tcp::6443-:6443"]
+                   qe.extra_qemu_args = ["-device", "virtio-net-pci,netdev=net0,mac=" + vm[:mac], "-netdev", "socket,id=net0,fd=3", "-device", "virtio-net-pci,netdev=net1", "-netdev", "user,id=net1,hostfwd=tcp::" + string_to_number(vm[:name]).to_s + "-:22"]
                end
                # Setup basic Control Plane
                node.vm.provision "ansible_local" do |ansible|
@@ -100,6 +100,12 @@ Vagrant.configure("2") do |config|
                    ansible.compatibility_mode = "2.0"
                    ansible.tags = "cilium"
                end
+#                # Install Calico CNI
+#                node.vm.provision "ansible_local" do |ansible|
+#                    ansible.playbook = "ansible/playbook_k8s_cluster_networking.yaml"
+#                    ansible.compatibility_mode = "2.0"
+#                    ansible.tags = "calico"
+#                end
                # Install NFS
                node.vm.provision "ansible_local" do |ansible|
                    ansible.playbook = "ansible/playbook_k8s_cluster_storage.yaml"
